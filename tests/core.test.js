@@ -40,8 +40,9 @@ test('getContextPercent returns raw percentage without buffer', () => {
   assert.equal(percent, 28);
 });
 
-test('getBufferedPercent includes 16.5% buffer', () => {
-  // 55000 / 200000 = 27.5%, + 16.5% buffer = 44%
+test('getBufferedPercent scales buffer by raw usage', () => {
+  // 55000 / 200000 = 27.5% raw, scale = (0.275 - 0.05) / (0.50 - 0.05) = 0.5
+  // buffer = 200000 * 0.165 * 0.5 = 16500, (55000 + 16500) / 200000 = 35.75% → 36%
   const percent = getBufferedPercent({
     context_window: {
       context_window_size: 200000,
@@ -53,7 +54,7 @@ test('getBufferedPercent includes 16.5% buffer', () => {
     },
   });
 
-  assert.equal(percent, 44);
+  assert.equal(percent, 36);
 });
 
 test('getContextPercent handles missing input tokens', () => {
@@ -71,10 +72,8 @@ test('getContextPercent handles missing input tokens', () => {
   assert.equal(percent, 3);
 });
 
-test('getBufferedPercent scales to larger context windows', () => {
-  // Test with 1M context window: 45000 tokens + (1000000 * 0.165) buffer
-  // Raw: 45000 / 1000000 = 4.5% → 5%
-  // Buffered: (45000 + 165000) / 1000000 = 21% → 21%
+test('getBufferedPercent applies no buffer at very low usage', () => {
+  // 1M window, 45000 tokens = 4.5% raw → below 5% threshold → scale = 0 → no buffer
   const rawPercent = getContextPercent({
     context_window: {
       context_window_size: 1000000,
@@ -89,7 +88,20 @@ test('getBufferedPercent scales to larger context windows', () => {
   });
 
   assert.equal(rawPercent, 5);
-  assert.equal(bufferedPercent, 21);
+  assert.equal(bufferedPercent, 5); // no buffer at low usage (e.g. after /clear)
+});
+
+test('getBufferedPercent applies full buffer at high usage', () => {
+  // 200k window, 110000 tokens = 55% raw → above 50% threshold → scale = 1 → full buffer
+  // buffer = 200000 * 0.165 = 33000, (110000 + 33000) / 200000 = 71.5% → 72%
+  const percent = getBufferedPercent({
+    context_window: {
+      context_window_size: 200000,
+      current_usage: { input_tokens: 110000 },
+    },
+  });
+
+  assert.equal(percent, 72);
 });
 
 // Native percentage tests (Claude Code v2.1.6+)
@@ -127,6 +139,7 @@ test('getContextPercent falls back when native is null', () => {
 });
 
 test('getBufferedPercent falls back when native is null', () => {
+  // 55000 / 200000 = 27.5% raw, scale = 0.5, buffer = 200000 * 0.165 * 0.5 = 16500 → 36%
   const percent = getBufferedPercent({
     context_window: {
       context_window_size: 200000,
@@ -134,7 +147,7 @@ test('getBufferedPercent falls back when native is null', () => {
       used_percentage: null,
     },
   });
-  assert.equal(percent, 44); // buffered calculation
+  assert.equal(percent, 36); // scaled buffered calculation
 });
 
 test('native percentage handles zero correctly', () => {

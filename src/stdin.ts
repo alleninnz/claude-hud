@@ -76,7 +76,15 @@ export function getBufferedPercent(stdin: StdinData): number {
   }
 
   const totalTokens = getTotalTokens(stdin);
-  const buffer = size * AUTOCOMPACT_BUFFER_PERCENT;
+
+  // Scale buffer by raw usage: no buffer at ≤5% (e.g. after /clear),
+  // full buffer at ≥50%. Autocompact doesn't kick in at very low usage.
+  const rawRatio = totalTokens / size;
+  const LOW = 0.05;
+  const HIGH = 0.50;
+  const scale = Math.min(1, Math.max(0, (rawRatio - LOW) / (HIGH - LOW)));
+  const buffer = size * AUTOCOMPACT_BUFFER_PERCENT * scale;
+
   return Math.min(100, Math.round(((totalTokens + buffer) / size) * 100));
 }
 
