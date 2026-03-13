@@ -62,8 +62,8 @@ export function getContextPercent(stdin: StdinData): number {
 }
 
 export function getBufferedPercent(stdin: StdinData): number {
-  // Prefer native percentage (v2.1.6+) - accurate and matches /context
-  // Native percentage already accounts for context correctly, no buffer needed
+  // Prefer native percentage (v2.1.6+) so the HUD matches Claude Code's
+  // own context output. The buffered fallback only approximates older versions.
   const native = getNativePercent(stdin);
   if (native !== null) {
     return native;

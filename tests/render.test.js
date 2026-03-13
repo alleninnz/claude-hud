@@ -754,6 +754,17 @@ test('renderSessionLine uses raw percent when autocompactBuffer is disabled', ()
   assert.ok(line.includes('30%'), `expected raw percent 30%, got: ${line}`);
 });
 
+test('renderSessionLine avoids inflated startup percentage before native context data exists', () => {
+  const ctx = baseContext();
+  ctx.stdin.context_window.current_usage = {};
+  ctx.stdin.context_window.used_percentage = null;
+  ctx.config.display.autocompactBuffer = 'enabled';
+
+  const line = renderSessionLine(ctx);
+
+  assert.ok(line.includes('0%'), `expected startup percent 0%, got: ${line}`);
+});
+
 test('render adds separator line when showSeparators is true and activity exists', () => {
   const ctx = baseContext();
   ctx.config.showSeparators = true;

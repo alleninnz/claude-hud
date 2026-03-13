@@ -91,6 +91,18 @@ test('getBufferedPercent applies no buffer at very low usage', () => {
   assert.equal(bufferedPercent, 5); // no buffer at low usage (e.g. after /clear)
 });
 
+test('getBufferedPercent returns 0 for startup state before usage exists', () => {
+  const percent = getBufferedPercent({
+    context_window: {
+      context_window_size: 200000,
+      current_usage: {},
+      used_percentage: null,
+    },
+  });
+
+  assert.equal(percent, 0);
+});
+
 test('getBufferedPercent applies full buffer at high usage', () => {
   // 200k window, 110000 tokens = 55% raw → above 50% threshold → scale = 1 → full buffer
   // buffer = 200000 * 0.165 = 33000, (110000 + 33000) / 200000 = 71.5% → 72%
@@ -125,6 +137,26 @@ test('getBufferedPercent prefers native used_percentage when available', () => {
     },
   });
   assert.equal(percent, 47);
+});
+
+test('getBufferedPercent switches from startup fallback to native percentage when available', () => {
+  const startupPercent = getBufferedPercent({
+    context_window: {
+      context_window_size: 200000,
+      current_usage: {},
+      used_percentage: null,
+    },
+  });
+  const nativePercent = getBufferedPercent({
+    context_window: {
+      context_window_size: 200000,
+      current_usage: { input_tokens: 1000 },
+      used_percentage: 1,
+    },
+  });
+
+  assert.equal(startupPercent, 0);
+  assert.equal(nativePercent, 1);
 });
 
 test('getContextPercent falls back when native is null', () => {
