@@ -139,10 +139,13 @@ After choosing a preset, you can turn individual elements on or off.
 Edit `~/.claude/plugins/claude-hud/config.json` directly for advanced settings such as `colors.*`,
 `pathLevels`, and threshold overrides. Running `/claude-hud:configure` preserves those manual settings.
 
+Chinese HUD labels are available as an explicit opt-in. English stays the default unless you set `language` in config.
+
 ### Options
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
+| `language` | `en` \| `zh` | `en` | HUD label language. English is the default; set `zh` to enable Chinese labels. |
 | `lineLayout` | string | `expanded` | Layout: `expanded` (multi-line) or `compact` (single line) |
 | `pathLevels` | 1-3 | 1 | Directory levels to show in project path |
 | `elementOrder` | string[] | `["project","context","usage","memory","environment","tools","agents","todos"]` | Expanded-mode element order. Omit entries to hide them in expanded mode. |
@@ -212,6 +215,7 @@ To disable, set `display.showUsage` to `false`.
 
 ```json
 {
+  "language": "zh",
   "lineLayout": "expanded",
   "pathLevels": 2,
   "elementOrder": ["project", "tools", "context", "usage", "memory", "environment", "agents", "todos"],

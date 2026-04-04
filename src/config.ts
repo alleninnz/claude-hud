@@ -2,6 +2,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { getHudPluginDir } from './claude-config-dir.js';
+import type { Language } from './i18n/types.js';
 
 export type LineLayoutType = 'compact' | 'expanded';
 
@@ -58,6 +59,7 @@ export const DEFAULT_ELEMENT_ORDER: HudElement[] = [
 const KNOWN_ELEMENTS = new Set<HudElement>(DEFAULT_ELEMENT_ORDER);
 
 export interface HudConfig {
+  language: Language;
   lineLayout: LineLayoutType;
   showSeparators: boolean;
   pathLevels: 1 | 2 | 3;
@@ -97,6 +99,7 @@ export interface HudConfig {
 }
 
 export const DEFAULT_CONFIG: HudConfig = {
+  language: 'en',
   lineLayout: 'expanded',
   showSeparators: false,
   pathLevels: 1,
@@ -166,6 +169,10 @@ function validateAutocompactBuffer(value: unknown): value is AutocompactBufferMo
 
 function validateContextValue(value: unknown): value is ContextValueMode {
   return value === 'percent' || value === 'tokens' || value === 'remaining' || value === 'both';
+}
+
+function validateLanguage(value: unknown): value is Language {
+  return value === 'en' || value === 'zh';
 }
 
 function validateModelFormat(value: unknown): value is ModelFormatMode {
@@ -254,6 +261,9 @@ function validateThreshold(value: unknown, max = 100): number {
 
 export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
   const migrated = migrateConfig(userConfig);
+  const language = validateLanguage(migrated.language)
+    ? migrated.language
+    : DEFAULT_CONFIG.language;
 
   const lineLayout = validateLineLayout(migrated.lineLayout)
     ? migrated.lineLayout
@@ -386,7 +396,7 @@ export function mergeConfig(userConfig: Partial<HudConfig>): HudConfig {
       : DEFAULT_CONFIG.colors.custom,
   };
 
-  return { lineLayout, showSeparators, pathLevels, elementOrder, gitStatus, display, colors };
+  return { language, lineLayout, showSeparators, pathLevels, elementOrder, gitStatus, display, colors };
 }
 
 export async function loadConfig(): Promise<HudConfig> {
@@ -394,13 +404,13 @@ export async function loadConfig(): Promise<HudConfig> {
 
   try {
     if (!fs.existsSync(configPath)) {
-      return DEFAULT_CONFIG;
+      return mergeConfig({});
     }
 
     const content = fs.readFileSync(configPath, 'utf-8');
     const userConfig = JSON.parse(content) as Partial<HudConfig>;
     return mergeConfig(userConfig);
   } catch {
-    return DEFAULT_CONFIG;
+    return mergeConfig({});
   }
 }

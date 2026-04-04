@@ -14,6 +14,7 @@ import { renderMemoryLine } from '../dist/render/lines/memory.js';
 import { renderIdentityLine } from '../dist/render/lines/identity.js';
 import { renderEnvironmentLine } from '../dist/render/lines/environment.js';
 import { getContextColor, getQuotaColor } from '../dist/render/colors.js';
+import { setLanguage } from '../dist/i18n/index.js';
 
 function stripAnsi(str) {
   // eslint-disable-next-line no-control-regex
@@ -923,6 +924,37 @@ test('renderProjectLine does not guess API auth from environment variables alone
   }
 });
 
+test('renderIdentityLine translates labels when Chinese is enabled', () => {
+  const ctx = baseContext();
+  setLanguage('zh');
+  try {
+    const line = stripAnsi(renderIdentityLine(ctx));
+    assert.ok(line.includes('上下文'));
+  } finally {
+    setLanguage('en');
+  }
+});
+
+test('renderUsageLine translates labels when Chinese is enabled', () => {
+  const ctx = baseContext();
+  ctx.usageData = {
+    planName: 'Pro',
+    fiveHour: 25,
+    sevenDay: 10,
+    fiveHourResetAt: new Date(Date.now() + 60 * 60 * 1000),
+    sevenDayResetAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
+  };
+
+  setLanguage('zh');
+  try {
+    const line = stripAnsi(renderUsageLine(ctx) ?? '');
+    assert.ok(line.includes('用量'));
+    assert.ok(line.includes('重置剩余'));
+  } finally {
+    setLanguage('en');
+  }
+});
+
 test('renderSessionLine shows Bedrock label and hides usage for bedrock model ids', () => {
   const ctx = baseContext();
   ctx.stdin.model = { display_name: 'Sonnet', id: 'anthropic.claude-3-5-sonnet-20240620-v1:0' };
@@ -986,7 +1018,7 @@ test('renderSessionLine shows 7d reset countdown in text-only mode', () => {
 
   const line = stripAnsi(renderSessionLine(ctx));
   assert.ok(line.includes('7d: 85%'), `should include 7d label and percentage: ${line}`);
-  assert.ok(line.includes('(1d 4h)'), `should include 7d reset countdown in text-only mode: ${line}`);
+  assert.ok(line.includes('(resets in 1d 4h)'), `should include 7d reset countdown in text-only mode: ${line}`);
 });
 
 test('renderSessionLine respects sevenDayThreshold override', () => {
