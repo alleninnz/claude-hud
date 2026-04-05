@@ -259,7 +259,7 @@ test('render ignores BEL-terminated OSC 8 hyperlink sequences when measuring lin
   assert.ok(displayWidth(lines[0]) <= 47, 'visible width should respect terminal width');
 });
 
-test('render falls back to a safe default width when no terminal size is available', () => {
+test('render skips wrapping when no reliable terminal size is available', () => {
   const ctx = baseContext();
   ctx.stdin.model = { display_name: 'Sonnet 4.6' };
   ctx.stdin.cwd = '/tmp/very-long-project-name-for-ghostty-fallback-check';
@@ -296,8 +296,10 @@ test('render falls back to a safe default width when no terminal size is availab
     });
   });
 
-  assert.ok(lines.length > 1, 'should wrap output instead of emitting one oversized line');
-  assert.ok(lines.every(line => displayWidth(line) <= 80), 'all lines should fit the safe fallback width');
+  // With no reliable width source, lines should NOT be wrapped/truncated.
+  // The parent process (Claude Code) handles truncation via Ink.
+  assert.ok(lines.length >= 1, 'should still render output');
+  assert.ok(lines.some(line => displayWidth(line) > 40), 'long lines should pass through without truncation at fallback width');
 });
 
 test('render does not strand a bare 5h continuation line in compact mode', () => {

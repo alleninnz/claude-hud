@@ -15,7 +15,6 @@ import {
   renderSessionTokensLine,
 } from './lines/index.js';
 import { dim, RESET } from './colors.js';
-import { UNKNOWN_TERMINAL_WIDTH } from '../utils/terminal.js';
 
 // eslint-disable-next-line no-control-regex
 const ANSI_ESCAPE_PATTERN = /^(?:\x1b\[[0-9;]*m|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\))/;
@@ -25,11 +24,7 @@ const GRAPHEME_SEGMENTER = typeof Intl.Segmenter === 'function'
   ? new Intl.Segmenter(undefined, { granularity: 'grapheme' })
   : null;
 
-function stripAnsi(str: string): string {
-  return str.replace(ANSI_ESCAPE_GLOBAL, '');
-}
-
-function getTerminalWidth(): number {
+function getTerminalWidth(): number | null {
   const stdoutColumns = process.stdout?.columns;
   if (typeof stdoutColumns === 'number' && Number.isFinite(stdoutColumns) && stdoutColumns > 0) {
     return Math.floor(stdoutColumns);
@@ -47,7 +42,10 @@ function getTerminalWidth(): number {
     return envColumns;
   }
 
-  return UNKNOWN_TERMINAL_WIDTH;
+  // No reliable width source available (e.g. piped statusline subprocess).
+  // Return null so callers can skip width-dependent wrapping rather than
+  // using a wrong fallback that causes incorrect line breaks.
+  return null;
 }
 
 function splitAnsiTokens(str: string): Array<{ type: 'ansi' | 'text'; value: string }> {
@@ -143,6 +141,10 @@ function visualLength(str: string): number {
     }
   }
   return width;
+}
+
+function stripAnsi(str: string): string {
+  return str.replace(ANSI_ESCAPE_GLOBAL, '');
 }
 
 function sliceVisible(str: string, maxVisible: number): string {
@@ -397,7 +399,7 @@ function renderExpanded(ctx: RenderContext, terminalWidth: number | null = null)
 
       if (firstLine && secondLine) {
         const combinedLine = `${firstLine} │ ${secondLine}`;
-        const canCombine = !terminalWidth || visualLength(combinedLine) <= terminalWidth;
+        const canCombine = terminalWidth !== null && visualLength(combinedLine) <= terminalWidth;
 
         if (canCombine) {
           lines.push({ line: combinedLine, isActivity: false });
@@ -485,10 +487,15 @@ export function render(ctx: RenderContext): void {
   }
 
   const physicalLines = lines.flatMap(line => line.split('\n'));
-  const visibleLines = physicalLines.flatMap(line => wrapLineToWidth(line, terminalWidth));
+  // Only wrap when we have a reliable terminal width from stdout/stderr/COLUMNS.
+  // When running as a piped statusline subprocess with no width source, let the
+  // parent (Claude Code's Ink layer) handle truncation instead of wrapping at a
+  // wrong fallback value.
+  const visibleLines = terminalWidth
+    ? physicalLines.flatMap(line => wrapLineToWidth(line, terminalWidth))
+    : physicalLines;
 
   for (const line of visibleLines) {
-    const outputLine = `${RESET}${line}`;
-    console.log(outputLine);
+    console.log(`${RESET}${line}`);
   }
 }
